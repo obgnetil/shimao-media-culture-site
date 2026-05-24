@@ -264,9 +264,49 @@ const state = {
   selectedFreeEl: null,
   freeDrag: null,
   mediaPan: null,
-  mediaTarget: null
+  mediaTarget: null,
+  mobileStageLockBound: false
 };
 const deck = document.getElementById("deck");
+const lockedMobileStage = {
+  width: 1400,
+  height: 787.5,
+  bleedGuard: 0.985
+};
+
+function isLockedMobilePortrait() {
+  return window.matchMedia("(max-width: 900px) and (orientation: portrait)").matches;
+}
+
+function updateMobileStageLock() {
+  const viewport = window.visualViewport;
+  const viewportW = Math.max(1, viewport?.width || window.innerWidth || document.documentElement.clientWidth || lockedMobileStage.height);
+  const viewportH = Math.max(1, viewport?.height || window.innerHeight || document.documentElement.clientHeight || lockedMobileStage.width);
+  const scale = Math.min(
+    viewportW / lockedMobileStage.height,
+    viewportH / lockedMobileStage.width,
+    1
+  ) * lockedMobileStage.bleedGuard;
+  document.documentElement.style.setProperty("--mobile-lock-scale", Math.max(0.1, scale).toFixed(4));
+
+  if (deck) {
+    const locked = isLockedMobilePortrait();
+    deck.classList.toggle("is-mobile-locked", locked);
+    if (locked && state.editOpen) toggleEditPanel(false);
+  }
+}
+
+function bindMobileStageLock() {
+  if (state.mobileStageLockBound) {
+    updateMobileStageLock();
+    return;
+  }
+  state.mobileStageLockBound = true;
+  updateMobileStageLock();
+  window.addEventListener("resize", updateMobileStageLock, { passive: true });
+  window.addEventListener("orientationchange", updateMobileStageLock, { passive: true });
+  window.visualViewport?.addEventListener("resize", updateMobileStageLock, { passive: true });
+}
 
 function safeText(text) {
   return String(text).replace(/[&<>"']/g, (m) => ({
@@ -587,8 +627,9 @@ function render() {
   bindMediaPreview();
   applyMediaPositions();
   bindMediaPanning();
+  bindMobileStageLock();
   const requested = Number(new URLSearchParams(window.location.search).get("slide"));
-  if (new URLSearchParams(window.location.search).get("edit") === "1") toggleEditPanel(true);
+  if (new URLSearchParams(window.location.search).get("edit") === "1" && !isLockedMobilePortrait()) toggleEditPanel(true);
   show(Number.isFinite(requested) && requested > 0 ? requested - 1 : 0);
 }
 

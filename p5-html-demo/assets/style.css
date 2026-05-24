@@ -9,6 +9,9 @@
   --muted: #9da4ad;
   --line: rgba(255, 255, 255, 0.22);
   --shadow: 10px 12px 0 rgba(0, 0, 0, 0.6);
+  --mobile-lock-stage-w: 1400px;
+  --mobile-lock-stage-h: 787.5px;
+  --mobile-lock-scale: 1;
   font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", Arial, sans-serif;
 }
 
@@ -2216,19 +2219,33 @@ video {
   }
 }
 
+@media (max-width: 900px) {
+  .choice-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (max-width: 900px) and (orientation: portrait) {
+  html,
+  body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+
   .deck-body {
+    position: fixed;
+    inset: 0;
+    width: 100vw;
     height: 100vh;
     height: 100dvh;
     overflow: hidden;
     display: block;
-    position: relative;
+    background: #07070a;
   }
 
   .deck-shell {
-    --mobile-nav-h: 58px;
-    --mobile-stage-w: min(calc(100vw * 16 / 9), calc(100vh - var(--mobile-nav-h) - 10px));
-    --mobile-stage-w: min(calc(100vw * 16 / 9), calc(100dvh - var(--mobile-nav-h) - 10px));
     position: fixed;
     inset: 0;
     width: 100vw;
@@ -2236,73 +2253,43 @@ video {
     height: 100dvh;
     max-width: none;
     padding: 0;
+    overflow: hidden;
   }
 
   .deck-shell .slide-frame {
     position: absolute;
     left: 50%;
-    top: calc((100vh - var(--mobile-nav-h)) / 2);
-    top: calc((100dvh - var(--mobile-nav-h)) / 2);
-    width: var(--mobile-stage-w);
+    top: 50%;
+    width: var(--mobile-lock-stage-w);
+    height: var(--mobile-lock-stage-h);
     max-width: none;
-    aspect-ratio: 16 / 9;
+    aspect-ratio: auto;
     border: 0;
-    transform: translate(-50%, -50%) rotate(90deg);
-    transform-origin: center;
+    box-shadow: none;
+    transform: translate(-50%, -50%) rotate(90deg) scale(var(--mobile-lock-scale));
+    transform-origin: center center;
     touch-action: none;
   }
 
-  .deck-nav {
-    position: fixed;
-    left: 0;
-    right: 0;
-    bottom: 5px;
-    z-index: 17;
-    height: 58px;
-    padding: 8px;
-    gap: 6px;
-    background: rgba(7, 7, 10, 0.88);
-    backdrop-filter: blur(14px);
-  }
-
-  .deck-nav button,
-  .deck-nav a {
-    flex: 1 1 0;
-    min-width: 0;
-    height: 38px;
-    padding: 0 8px;
-    font-size: 14px;
-    white-space: nowrap;
-  }
-
-  .deck-nav span {
-    flex: 0 0 72px;
-    min-width: 0;
-    font-size: 14px;
-  }
-
+  .deck-nav,
+  .edit-fab,
+  .edit-panel,
   .progress {
-    z-index: 18;
+    display: none !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
   }
 
-  .edit-fab {
-    right: 14px;
-    bottom: 76px;
-  }
-}
-
-@media (max-height: 520px) and (orientation: landscape) {
-  .deck-body {
-    overflow: hidden;
+  .deck-shell.is-editing .slide-frame {
+    cursor: grab;
   }
 
-  .deck-shell {
-    width: min(100vw, calc((100vh - 52px) * 16 / 9));
-    padding: 0;
-  }
-
-  .slide-frame {
-    border-width: 0;
+  .deck-shell.is-editing .free-editable,
+  .deck-shell.is-editing .free-editable:hover,
+  .deck-shell.is-editing .free-editable.is-selected,
+  .deck-shell.is-editing .free-editable.is-text-editing {
+    outline: 0 !important;
+    cursor: inherit;
   }
 }
 
