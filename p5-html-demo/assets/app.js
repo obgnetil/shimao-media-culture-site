@@ -573,13 +573,23 @@ function renderSlide(slide, idx) {
 
 function render() {
   deck.innerHTML = `
-    <div class="slide-frame">
-      ${slides.map(renderSlide).join("")}
-      <div class="opening-glitch" aria-hidden="true">
-        <span></span>
-        <span></span>
-        <span></span>
-        <b>SHIMAO MEDIA</b>
+    <div class="stage-viewport">
+      <div class="slide-frame">
+        ${slides.map(renderSlide).join("")}
+        <div class="opening-glitch" aria-hidden="true">
+          <span></span>
+          <span></span>
+          <span></span>
+          <b>SHIMAO MEDIA</b>
+        </div>
+      </div>
+      <div class="hover-preview" aria-hidden="true">
+        <div class="hover-preview-bg"></div>
+        <figure>
+          <img src="" alt="">
+          <video src="" controls playsinline></video>
+          <figcaption></figcaption>
+        </figure>
       </div>
     </div>
     <nav class="deck-nav">
@@ -606,14 +616,6 @@ function render() {
       </div>
       <textarea data-edit-output readonly placeholder="导出的配置会显示在这里"></textarea>
     </aside>
-    <div class="hover-preview" aria-hidden="true">
-      <div class="hover-preview-bg"></div>
-      <figure>
-        <img src="" alt="">
-        <video src="" controls playsinline></video>
-        <figcaption></figcaption>
-      </figure>
-    </div>
     <div class="progress"><span></span></div>
   `;
   bind();

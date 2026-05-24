@@ -197,6 +197,11 @@ input {
   padding: 18px;
 }
 
+.stage-viewport {
+  position: relative;
+  width: 100%;
+}
+
 .slide-frame {
   position: relative;
   aspect-ratio: 16 / 9;
@@ -2256,19 +2261,33 @@ video {
     overflow: hidden;
   }
 
-  .deck-shell .slide-frame {
+  .deck-shell .stage-viewport {
     position: absolute;
     left: 50%;
     top: 50%;
     width: var(--mobile-lock-stage-w);
     height: var(--mobile-lock-stage-h);
     max-width: none;
+    transform: translate(-50%, -50%) rotate(90deg) scale(var(--mobile-lock-scale));
+    transform-origin: center center;
+    overflow: visible;
+  }
+
+  .deck-shell .slide-frame {
+    width: 100%;
+    height: 100%;
     aspect-ratio: auto;
     border: 0;
     box-shadow: none;
-    transform: translate(-50%, -50%) rotate(90deg) scale(var(--mobile-lock-scale));
-    transform-origin: center center;
+    animation: none !important;
+    transform: none !important;
     touch-action: none;
+  }
+
+  .deck-shell .hover-preview {
+    position: absolute;
+    inset: 0;
+    padding: 36px;
   }
 
   .deck-nav,
