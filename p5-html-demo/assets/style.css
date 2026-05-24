@@ -2216,40 +2216,93 @@ video {
   }
 }
 
-@media (max-width: 900px) {
-  .choice-grid,
-  .statement-grid,
-  .target-layout,
-  .slide-compare,
-  .slide-video-feature {
-    grid-template-columns: 1fr;
-  }
-
+@media (max-width: 900px) and (orientation: portrait) {
   .deck-body {
-    overflow: auto;
-    align-items: start;
+    height: 100vh;
+    height: 100dvh;
+    overflow: hidden;
+    display: block;
+    position: relative;
   }
 
   .deck-shell {
+    --mobile-nav-h: 58px;
+    --mobile-stage-w: min(calc(100vw * 16 / 9), calc(100vh - var(--mobile-nav-h) - 10px));
+    --mobile-stage-w: min(calc(100vw * 16 / 9), calc(100dvh - var(--mobile-nav-h) - 10px));
+    position: fixed;
+    inset: 0;
     width: 100vw;
+    height: 100vh;
+    height: 100dvh;
+    max-width: none;
+    padding: 0;
+  }
+
+  .deck-shell .slide-frame {
+    position: absolute;
+    left: 50%;
+    top: calc((100vh - var(--mobile-nav-h)) / 2);
+    top: calc((100dvh - var(--mobile-nav-h)) / 2);
+    width: var(--mobile-stage-w);
+    max-width: none;
+    aspect-ratio: 16 / 9;
+    border: 0;
+    transform: translate(-50%, -50%) rotate(90deg);
+    transform-origin: center;
+    touch-action: none;
+  }
+
+  .deck-nav {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 5px;
+    z-index: 17;
+    height: 58px;
+    padding: 8px;
+    gap: 6px;
+    background: rgba(7, 7, 10, 0.88);
+    backdrop-filter: blur(14px);
+  }
+
+  .deck-nav button,
+  .deck-nav a {
+    flex: 1 1 0;
+    min-width: 0;
+    height: 38px;
+    padding: 0 8px;
+    font-size: 14px;
+    white-space: nowrap;
+  }
+
+  .deck-nav span {
+    flex: 0 0 72px;
+    min-width: 0;
+    font-size: 14px;
+  }
+
+  .progress {
+    z-index: 18;
+  }
+
+  .edit-fab {
+    right: 14px;
+    bottom: 76px;
+  }
+}
+
+@media (max-height: 520px) and (orientation: landscape) {
+  .deck-body {
+    overflow: hidden;
+  }
+
+  .deck-shell {
+    width: min(100vw, calc((100vh - 52px) * 16 / 9));
     padding: 0;
   }
 
   .slide-frame {
-    border: 0;
-  }
-
-  .slide {
-    padding: 42px 28px;
-  }
-
-  .value-grid,
-  .result-lanes,
-  .future-track,
-  .mini-compare-grid,
-  .video-grid,
-  .case-grid {
-    grid-template-columns: repeat(2, 1fr);
+    border-width: 0;
   }
 }
 
