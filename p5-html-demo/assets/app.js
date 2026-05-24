@@ -34,7 +34,7 @@ const slides = [
   {
     type: "cover",
     kicker: "STAGE 01",
-    title: "世贸传媒",
+    title: "世茂传媒",
     lead: "让舞台有光，让努力有钱",
     chips: ["男团女团团播", "艺人孵化", "直播运营", "商业化兑现"]
   },
@@ -58,7 +58,7 @@ const slides = [
       { text: "我们在帮有潜力的人", tone: "minor", indent: true },
       { text: "站上舞台", tone: "major" }
     ],
-    lead: "世贸传媒专注男团、女团娱乐团播内容的艺人孵化与直播运营。",
+    lead: "世茂传媒专注男团、女团娱乐团播内容的艺人孵化与直播运营。",
     points: ["用内容训练建立舞台表达", "用运营能力放大直播表现", "用商业化路径帮助努力被兑现"]
   },
   {
@@ -244,7 +244,7 @@ const slides = [
   {
     type: "end",
     kicker: "TO BE CONTINUED",
-    title: "世贸传媒",
+    title: "世茂传媒",
     lead: "期待与你同行"
   }
 ];
