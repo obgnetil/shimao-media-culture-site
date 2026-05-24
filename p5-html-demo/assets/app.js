@@ -1,4 +1,4 @@
-﻿const assetBase = "../media/";
+const assetBase = "../素材图片/";
 const editStoreKey = "shimao-p5-html-demo-edits-v1";
 const freeEditStoreKey = "shimao-p5-free-edits-v1";
 const mediaReplaceMetaKey = "shimao-p5-media-replacements-v1";
@@ -1478,4 +1478,3 @@ window.addEventListener("keydown", (event) => {
 });
 
 render();
-

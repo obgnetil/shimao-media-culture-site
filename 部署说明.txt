@@ -1,5 +1,0 @@
-﻿部署说明：
-1. 将本 html 文件夹内的全部内容上传到网站根目录。
-2. 域名首页会自动打开 ./p5-html-demo/demo-a-battle.html。
-3. 所有图片和视频素材已迁移到 ./media，部署版 app.js 已改为读取该目录。
-4. 如服务器区分大小写，请保持文件夹名称不变：p5-html-demo、assets、media。
