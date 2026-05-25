@@ -757,7 +757,7 @@ window.__SHIMAO_BAKED_DATA__ = {
       "isPlaceholder": false,
       "kind": "video",
       "name": "24.mp4",
-      "src": "../素材图片/24.mp4"
+      "src": "../素材图片/24.mp4?v=compat-1"
     },
     "slide-15-video-3": {
       "isPlaceholder": false,
@@ -775,13 +775,13 @@ window.__SHIMAO_BAKED_DATA__ = {
       "isPlaceholder": false,
       "kind": "video",
       "name": "26.mp4",
-      "src": "../素材图片/26.mp4"
+      "src": "../素材图片/26.mp4?v=compat-1"
     },
     "slide-17-video-2": {
       "isPlaceholder": false,
       "kind": "video",
       "name": "33.mp4",
-      "src": "../素材图片/33.mp4"
+      "src": "../素材图片/33.mp4?v=compat-1"
     },
     "slide-17-video-3": {
       "isPlaceholder": false,
@@ -799,7 +799,7 @@ window.__SHIMAO_BAKED_DATA__ = {
       "isPlaceholder": false,
       "kind": "video",
       "name": "34.mp4",
-      "src": "../素材图片/34.mp4"
+      "src": "../素材图片/34.mp4?v=compat-1"
     },
     "slide-18-video-3": {
       "isPlaceholder": false,
