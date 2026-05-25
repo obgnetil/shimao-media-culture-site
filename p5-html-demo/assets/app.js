@@ -265,6 +265,7 @@ const state = {
   freeDrag: null,
   mediaPan: null,
   mediaTarget: null,
+  compareDrag: null,
   mobileStageLockBound: false
 };
 const deck = document.getElementById("deck");
@@ -712,6 +713,61 @@ function navigate(delta, options = {}) {
   show(state.index + direction);
 }
 
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, value));
+}
+
+function comparePercentFromPointer(card, event) {
+  const rect = card.getBoundingClientRect();
+  if (!rect.width || !rect.height) return 50;
+  const raw = isLockedMobilePortrait()
+    ? ((event.clientY - rect.top) / rect.height) * 100
+    : ((event.clientX - rect.left) / rect.width) * 100;
+  return clamp(raw, 0, 100);
+}
+
+function setComparePosition(card, percent) {
+  const safePercent = clamp(percent, 0, 100);
+  card.style.setProperty("--pos", `${safePercent}%`);
+  const slider = card.querySelector(".ba-slider");
+  if (slider) slider.value = String(Math.round(safePercent));
+}
+
+function updateCompareFromPointer(card, event) {
+  setComparePosition(card, comparePercentFromPointer(card, event));
+}
+
+function bindCompareDragging() {
+  document.querySelectorAll(".compare-card, .mini-ba-card").forEach((card) => {
+    const slider = card.querySelector(".ba-slider");
+    slider.addEventListener("input", () => setComparePosition(card, Number(slider.value)));
+    card.addEventListener("pointerdown", (event) => {
+      if (state.editOpen || event.button !== 0) return;
+      event.preventDefault();
+      event.stopPropagation();
+      state.compareDrag = { card, id: event.pointerId };
+      card.classList.add("dragging");
+      card.setPointerCapture?.(event.pointerId);
+      updateCompareFromPointer(card, event);
+    });
+    card.addEventListener("pointermove", (event) => {
+      if (!state.compareDrag || state.compareDrag.card !== card || state.compareDrag.id !== event.pointerId) return;
+      event.preventDefault();
+      event.stopPropagation();
+      updateCompareFromPointer(card, event);
+    });
+    const endDrag = (event) => {
+      if (!state.compareDrag || state.compareDrag.card !== card) return;
+      if (event?.pointerId && state.compareDrag.id !== event.pointerId) return;
+      card.classList.remove("dragging");
+      state.compareDrag = null;
+    };
+    card.addEventListener("pointerup", endDrag);
+    card.addEventListener("pointercancel", endDrag);
+    card.addEventListener("lostpointercapture", endDrag);
+  });
+}
+
 function bind() {
   document.querySelectorAll("[data-dir]").forEach((btn) => {
     btn.addEventListener("click", (event) => {
@@ -719,12 +775,7 @@ function bind() {
       navigate(Number(btn.dataset.dir), { force: true });
     });
   });
-  document.querySelectorAll(".compare-card, .mini-ba-card").forEach((card) => {
-    const slider = card.querySelector(".ba-slider");
-    slider.addEventListener("input", () => card.style.setProperty("--pos", `${slider.value}%`));
-    slider.addEventListener("pointerdown", () => card.classList.add("dragging"));
-    slider.addEventListener("pointerup", () => card.classList.remove("dragging"));
-  });
+  bindCompareDragging();
   document.querySelectorAll(".hover-pop").forEach((figure) => {
     figure.addEventListener("click", (event) => {
       event.stopPropagation();
