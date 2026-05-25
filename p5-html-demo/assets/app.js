@@ -5,6 +5,10 @@ const mediaReplaceMetaKey = "shimao-p5-media-replacements-v1";
 const mediaPositionStoreKey = "shimao-p5-media-positions-v1";
 const mediaDbName = "shimao-p5-media-db-v1";
 const mediaStoreName = "media";
+const bakedData = window.__SHIMAO_BAKED_DATA__ || {};
+const isBakedFinal = Boolean(bakedData.finalMode);
+
+if (isBakedFinal) document.body.classList.add("is-final-output");
 
 const image = {
   officialA: `${assetBase}cf00a3454b216360c7391b1d3e4ba536.jpg`,
@@ -349,6 +353,7 @@ function beforeAfterPanel({ before = "", after, beforeLabel = "改造前", after
 }
 
 function readEdits() {
+  if (bakedData.legacyLayoutEdits) return bakedData.legacyLayoutEdits;
   try {
     return JSON.parse(localStorage.getItem(editStoreKey) || "{}");
   } catch {
@@ -357,6 +362,7 @@ function readEdits() {
 }
 
 function writeEdits(edits) {
+  if (isBakedFinal) return;
   localStorage.setItem(editStoreKey, JSON.stringify(edits));
 }
 
@@ -882,6 +888,7 @@ function bindSlideGestures() {
 }
 
 function readFreeEdits() {
+  if (bakedData.freeEdits) return bakedData.freeEdits;
   try {
     return JSON.parse(localStorage.getItem(freeEditStoreKey) || "{}");
   } catch {
@@ -890,6 +897,7 @@ function readFreeEdits() {
 }
 
 function writeFreeEdits(edits) {
+  if (isBakedFinal) return;
   localStorage.setItem(freeEditStoreKey, JSON.stringify(edits));
 }
 
@@ -1055,10 +1063,12 @@ function readMediaMeta() {
 }
 
 function writeMediaMeta(meta) {
+  if (isBakedFinal) return;
   localStorage.setItem(mediaReplaceMetaKey, JSON.stringify(meta));
 }
 
 function readMediaPositions() {
+  if (bakedData.mediaPositions) return bakedData.mediaPositions;
   try {
     return JSON.parse(localStorage.getItem(mediaPositionStoreKey) || "{}");
   } catch {
@@ -1067,6 +1077,7 @@ function readMediaPositions() {
 }
 
 function writeMediaPositions(positions) {
+  if (isBakedFinal) return;
   localStorage.setItem(mediaPositionStoreKey, JSON.stringify(positions));
 }
 
@@ -1183,7 +1194,36 @@ function setMediaSource(el, blob, name = "") {
   applyMediaPosition(el);
 }
 
+function setStaticMediaSource(el, entry) {
+  if (!entry?.src) return;
+  const url = entry.src;
+  el.dataset.localName = entry.name || "";
+  if (el.tagName.toLowerCase() === "video") {
+    el.src = url;
+    el.load();
+    el.play().catch(() => {});
+  } else if (el.classList.contains("placeholder-portrait")) {
+    el.style.backgroundImage = `linear-gradient(rgba(0,0,0,0.08), rgba(0,0,0,0.08)), url("${url}")`;
+    el.style.backgroundSize = "cover";
+    el.innerHTML = "";
+    el.dataset.replacedSrc = url;
+  } else {
+    el.src = url;
+    const pop = el.closest(".hover-pop");
+    if (pop) pop.dataset.src = url;
+  }
+  applyMediaPosition(el);
+}
+
 async function applyMediaReplacements() {
+  if (bakedData.mediaSources) {
+    const mediaEls = Array.from(document.querySelectorAll(".replaceable-media"));
+    for (const el of mediaEls) {
+      const key = el.dataset.mediaKey;
+      if (key && bakedData.mediaSources[key]) setStaticMediaSource(el, bakedData.mediaSources[key]);
+    }
+    return;
+  }
   const meta = readMediaMeta();
   const mediaEls = Array.from(document.querySelectorAll(".replaceable-media"));
   for (const el of mediaEls) {
@@ -1498,6 +1538,7 @@ function hideHoverPreview() {
 }
 
 function toggleEditPanel(force) {
+  if (isBakedFinal) return;
   state.editOpen = typeof force === "boolean" ? force : !state.editOpen;
   const panel = document.querySelector("[data-edit-panel]");
   panel.hidden = !state.editOpen;

@@ -40,6 +40,12 @@ input {
   font: inherit;
 }
 
+.is-final-output .edit-fab,
+.is-final-output .edit-panel,
+.is-final-output .ba-replace-hint {
+  display: none !important;
+}
+
 .theme-index {
   overflow: hidden;
 }
