@@ -270,7 +270,11 @@ const state = {
   mediaPan: null,
   mediaTarget: null,
   compareDrag: null,
-  mobileStageLockBound: false
+  mobileStageLockBound: false,
+  pageTurn: null,
+  pageTurnTimer: null,
+  videoAutoplayTimers: [],
+  videoAutoplayBound: false
 };
 const deck = document.getElementById("deck");
 const lockedMobileStage = {
@@ -281,6 +285,10 @@ const lockedMobileStage = {
 
 function isLockedMobilePortrait() {
   return window.matchMedia("(max-width: 900px) and (orientation: portrait)").matches;
+}
+
+function isMobilePageTurnMode() {
+  return window.matchMedia("(max-width: 900px)").matches;
 }
 
 function updateMobileStageLock() {
@@ -325,7 +333,7 @@ function safeText(text) {
 
 function mediaVideo(src, cls = "", key = "") {
   const videoKey = key || src;
-  return `<video class="${cls}" src="${src}" data-media-key="${safeText(videoKey)}" data-media-type="video" muted loop autoplay playsinline controls></video>`;
+  return `<video class="${cls}" src="${src}" data-media-key="${safeText(videoKey)}" data-media-type="video" muted loop autoplay playsinline webkit-playsinline preload="auto" controls></video>`;
 }
 
 function placeholder(label, key = "") {
@@ -631,12 +639,13 @@ function render() {
   applyAllEdits();
   applyAllFreeEdits();
   bindMediaReplacing();
-  applyMediaReplacements();
+  applyMediaReplacements().then(syncSlideVideos).catch((error) => console.warn("素材应用失败：", error));
   bindValueFlips();
   bindMediaPreview();
   applyMediaPositions();
   bindMediaPanning();
   bindMobileStageLock();
+  bindVideoAutoplay();
   const requested = Number(new URLSearchParams(window.location.search).get("slide"));
   if (new URLSearchParams(window.location.search).get("edit") === "1" && !isLockedMobilePortrait()) toggleEditPanel(true);
   show(Number.isFinite(requested) && requested > 0 ? requested - 1 : 0);
@@ -678,6 +687,7 @@ function show(next) {
   document.querySelector(".progress span").style.width = `${((state.index + 1) / slides.length) * 100}%`;
   syncEditPanel();
   startCaseMarquee();
+  syncSlideVideos();
 }
 
 function clearFxClasses() {
@@ -717,6 +727,171 @@ function navigate(delta, options = {}) {
   state.navLockUntil = now + 360;
   state.pendingNavDelta = 0;
   show(state.index + direction);
+}
+
+function getSlideEls() {
+  return Array.from(document.querySelectorAll(".slide"));
+}
+
+function getPageTurnFrame() {
+  return document.querySelector(".slide-frame");
+}
+
+function pageTurnLogicalDelta(turn, event) {
+  return turn.locked ? event.clientY - turn.y : event.clientX - turn.x;
+}
+
+function pageTurnOrthogonalDelta(turn, event) {
+  return turn.locked ? event.clientX - turn.x : event.clientY - turn.y;
+}
+
+function clearPageTurnVisuals() {
+  const frame = getPageTurnFrame();
+  window.clearTimeout(state.pageTurnTimer);
+  deck.classList.remove(
+    "is-page-touching",
+    "is-page-dragging",
+    "is-page-settling",
+    "is-page-edge",
+    "page-forward",
+    "page-back"
+  );
+  if (frame) {
+    [
+      "--page-turn-progress",
+      "--page-turn-rotate",
+      "--page-turn-current-x",
+      "--page-turn-current-scale",
+      "--page-turn-current-brightness",
+      "--page-turn-target-x",
+      "--page-turn-target-scale",
+      "--page-turn-target-brightness",
+      "--page-turn-target-opacity",
+      "--page-turn-overlay-opacity",
+      "--page-turn-shadow-x",
+      "--page-turn-shadow-blur"
+    ].forEach((name) => frame.style.removeProperty(name));
+  }
+  getSlideEls().forEach((slide) => {
+    slide.classList.remove("is-peeking", "is-turn-current", "is-turn-target");
+  });
+}
+
+function preparePageTurn(direction) {
+  const slideEls = getSlideEls();
+  const currentSlide = slideEls[state.index];
+  const targetIndex = state.index + direction;
+  const targetSlide = slideEls[targetIndex];
+  if (!currentSlide || !targetSlide) {
+    slideEls.forEach((slide) => slide.classList.remove("is-peeking", "is-turn-current", "is-turn-target"));
+    deck.classList.remove("page-forward", "page-back");
+    deck.classList.add("is-page-dragging", "is-page-edge", direction > 0 ? "page-forward" : "page-back");
+    currentSlide?.classList.add("is-turn-current");
+    return false;
+  }
+  slideEls.forEach((slide) => slide.classList.remove("is-peeking", "is-turn-current", "is-turn-target"));
+  deck.classList.remove("page-forward", "page-back", "is-page-edge");
+  deck.classList.add("is-page-dragging", direction > 0 ? "page-forward" : "page-back");
+  currentSlide.classList.add("is-turn-current");
+  targetSlide.classList.add("is-peeking", "is-turn-target");
+  return true;
+}
+
+function setPageTurnProgress(progress, direction) {
+  const frame = getPageTurnFrame();
+  if (!frame || !direction) return;
+  const safeProgress = clamp(progress, 0, 1);
+  const eased = 1 - Math.pow(1 - safeProgress, 1.18);
+  const rotate = (direction > 0 ? -82 : 82) * eased;
+  const currentX = (direction > 0 ? -26 : 26) * safeProgress;
+  const targetX = (direction > 0 ? 48 : -48) * (1 - eased);
+  const currentScale = 1 - Math.sin(safeProgress * Math.PI) * 0.018;
+  const targetScale = 0.985 + eased * 0.015;
+  const currentBrightness = 1 - safeProgress * 0.16;
+  const targetBrightness = 0.72 + safeProgress * 0.28;
+  const shadowX = (direction > 0 ? 34 : -34) * safeProgress;
+  const shadowBlur = 72 * safeProgress;
+  frame.style.setProperty("--page-turn-progress", safeProgress.toFixed(4));
+  frame.style.setProperty("--page-turn-rotate", `${rotate.toFixed(2)}deg`);
+  frame.style.setProperty("--page-turn-current-x", `${currentX.toFixed(2)}px`);
+  frame.style.setProperty("--page-turn-current-scale", currentScale.toFixed(4));
+  frame.style.setProperty("--page-turn-current-brightness", currentBrightness.toFixed(4));
+  frame.style.setProperty("--page-turn-target-x", `${targetX.toFixed(2)}px`);
+  frame.style.setProperty("--page-turn-target-scale", targetScale.toFixed(4));
+  frame.style.setProperty("--page-turn-target-brightness", targetBrightness.toFixed(4));
+  frame.style.setProperty("--page-turn-target-opacity", (0.3 + eased * 0.7).toFixed(4));
+  frame.style.setProperty("--page-turn-overlay-opacity", Math.min(0.72, 0.1 + safeProgress * 0.62).toFixed(4));
+  frame.style.setProperty("--page-turn-shadow-x", `${shadowX.toFixed(2)}px`);
+  frame.style.setProperty("--page-turn-shadow-blur", `${shadowBlur.toFixed(2)}px`);
+}
+
+function beginPageTurn(frame, event) {
+  const now = performance.now();
+  state.pageTurn = {
+    x: event.clientX,
+    y: event.clientY,
+    id: event.pointerId,
+    locked: isLockedMobilePortrait(),
+    direction: 0,
+    progress: 0,
+    moved: false,
+    lastLogical: 0,
+    lastTime: now,
+    velocity: 0,
+    settling: false
+  };
+  deck.classList.add("is-page-touching");
+  frame.setPointerCapture?.(event.pointerId);
+}
+
+function updatePageTurn(event) {
+  const turn = state.pageTurn;
+  if (!turn || turn.settling || event.pointerId !== turn.id) return false;
+  const logical = pageTurnLogicalDelta(turn, event);
+  const orthogonal = pageTurnOrthogonalDelta(turn, event);
+  const absLogical = Math.abs(logical);
+  const now = performance.now();
+  const dt = Math.max(1, now - turn.lastTime);
+  turn.velocity = (logical - turn.lastLogical) / dt;
+  turn.lastLogical = logical;
+  turn.lastTime = now;
+  if (absLogical > 8) turn.moved = true;
+  if (absLogical < 10) return true;
+  if (!turn.direction && absLogical < Math.abs(orthogonal) * 0.74) return true;
+  const direction = logical < 0 ? 1 : -1;
+  if (turn.direction !== direction) {
+    turn.direction = direction;
+    preparePageTurn(direction);
+  }
+  const frame = getPageTurnFrame();
+  const rect = frame?.getBoundingClientRect();
+  const axisLength = Math.max(220, turn.locked ? (rect?.height || window.innerHeight) : (rect?.width || window.innerWidth));
+  const targetExists = state.index + direction >= 0 && state.index + direction < slides.length;
+  const progress = targetExists
+    ? clamp(absLogical / (axisLength * 0.46), 0, 1)
+    : clamp(absLogical / (axisLength * 1.8), 0, 0.16);
+  turn.progress = progress;
+  if (targetExists) {
+    setPageTurnProgress(progress, direction);
+  } else {
+    setPageTurnProgress(progress, direction);
+  }
+  return true;
+}
+
+function finishPageTurn(commit) {
+  const turn = state.pageTurn;
+  if (!turn) return;
+  turn.settling = true;
+  const direction = turn.direction;
+  const canCommit = commit && direction && state.index + direction >= 0 && state.index + direction < slides.length;
+  deck.classList.add("is-page-settling");
+  setPageTurnProgress(canCommit ? 1 : 0, direction || 1);
+  state.pageTurnTimer = window.setTimeout(() => {
+    if (canCommit) navigate(direction, { force: true });
+    clearPageTurnVisuals();
+    state.pageTurn = null;
+  }, canCommit ? 260 : 190);
 }
 
 function clamp(value, min, max) {
@@ -821,9 +996,17 @@ function isInteractiveTarget(target, mode = "pointer") {
 
 function bindSlideGestures() {
   const frame = document.querySelector(".slide-frame");
-  const canNavigateFrom = (target) => !state.editOpen && !isInteractiveTarget(target);
+  const canNavigateFrom = (target) => {
+    if (state.editOpen) return false;
+    if (isMobilePageTurnMode() && target?.closest?.("video")) return true;
+    return !isInteractiveTarget(target);
+  };
   frame.addEventListener("pointerdown", (event) => {
     if (!canNavigateFrom(event.target)) return;
+    if (isMobilePageTurnMode()) {
+      beginPageTurn(frame, event);
+      return;
+    }
     state.pointer = {
       x: event.clientX,
       y: event.clientY,
@@ -834,12 +1017,38 @@ function bindSlideGestures() {
     frame.setPointerCapture?.(event.pointerId);
   });
   frame.addEventListener("pointermove", (event) => {
+    if (state.pageTurn) {
+      if (updatePageTurn(event)) event.preventDefault();
+      return;
+    }
     if (!state.pointer) return;
     const dx = event.clientX - state.pointer.x;
     const dy = event.clientY - state.pointer.y;
     if (Math.hypot(dx, dy) > 10) state.pointer.moved = true;
   });
   frame.addEventListener("pointerup", (event) => {
+    if (state.pageTurn) {
+      const turn = state.pageTurn;
+      const rect = frame.getBoundingClientRect();
+      const logical = pageTurnLogicalDelta(turn, event);
+      const velocityCommit = turn.direction > 0 ? turn.velocity < -0.48 : turn.velocity > 0.48;
+      const shouldCommit = Boolean(turn.direction) && (turn.progress > 0.32 || velocityCommit || Math.abs(logical) > 86);
+      if (turn.direction) {
+        finishPageTurn(shouldCommit);
+      } else {
+        const isTap = !turn.moved && Math.abs(event.clientX - turn.x) < 8 && Math.abs(event.clientY - turn.y) < 8 && event.button === 0;
+        state.pageTurn = null;
+        clearPageTurnVisuals();
+        if (isTap) {
+          const forwardTap = turn.locked
+            ? event.clientY > rect.top + rect.height / 2
+            : event.clientX > rect.left + rect.width / 2;
+          navigate(forwardTap ? 1 : -1);
+        }
+      }
+      event.preventDefault();
+      return;
+    }
     if (!state.pointer) return;
     const dx = event.clientX - state.pointer.x;
     const dy = event.clientY - state.pointer.y;
@@ -854,6 +1063,10 @@ function bindSlideGestures() {
     state.pointer = null;
   });
   frame.addEventListener("pointercancel", () => {
+    if (state.pageTurn) {
+      finishPageTurn(false);
+      return;
+    }
     state.pointer = null;
   });
   frame.addEventListener("mousedown", (event) => {
@@ -1167,9 +1380,90 @@ function prepareReplaceableMedia() {
       if (!videoEl.dataset.mediaKey) videoEl.dataset.mediaKey = `slide-${slideIndex + 1}-video-${videoIndex + 1}`;
       videoEl.dataset.mediaType = "video";
       videoEl.classList.add("replaceable-media");
+      prepareVideoForAutoplay(videoEl);
       applyMediaPosition(videoEl);
     });
   });
+}
+
+function prepareVideoForAutoplay(videoEl) {
+  if (!videoEl) return;
+  videoEl.muted = true;
+  videoEl.defaultMuted = true;
+  videoEl.autoplay = true;
+  videoEl.loop = true;
+  videoEl.playsInline = true;
+  videoEl.preload = "auto";
+  videoEl.setAttribute("muted", "");
+  videoEl.setAttribute("autoplay", "");
+  videoEl.setAttribute("loop", "");
+  videoEl.setAttribute("playsinline", "");
+  videoEl.setAttribute("webkit-playsinline", "");
+  videoEl.setAttribute("preload", "auto");
+}
+
+function playVideoElement(videoEl) {
+  if (!videoEl || !videoEl.src) return;
+  prepareVideoForAutoplay(videoEl);
+  if (videoEl.readyState === 0) videoEl.load();
+  const promise = videoEl.play();
+  if (promise?.catch) {
+    promise.catch(() => {
+      videoEl.muted = true;
+      videoEl.setAttribute("muted", "");
+      videoEl.play()?.catch?.(() => {});
+    });
+  }
+}
+
+function clearVideoAutoplayTimers() {
+  state.videoAutoplayTimers.forEach((timer) => window.clearTimeout(timer));
+  state.videoAutoplayTimers = [];
+}
+
+function playActiveSlideVideos() {
+  if (document.hidden) return;
+  const activeSlide = document.querySelector(".slide.active");
+  if (!activeSlide) return;
+  activeSlide.querySelectorAll("video").forEach(playVideoElement);
+}
+
+function queueActiveSlideVideoPlay() {
+  clearVideoAutoplayTimers();
+  [0, 90, 320, 900].forEach((delay) => {
+    state.videoAutoplayTimers.push(window.setTimeout(playActiveSlideVideos, delay));
+  });
+}
+
+function syncSlideVideos() {
+  getSlideEls().forEach((slide, index) => {
+    const isActive = index === state.index && slide.classList.contains("active") && !document.hidden;
+    slide.querySelectorAll("video").forEach((videoEl) => {
+      prepareVideoForAutoplay(videoEl);
+      if (isActive) {
+        playVideoElement(videoEl);
+      } else {
+        videoEl.pause();
+      }
+    });
+  });
+  if (!document.hidden) queueActiveSlideVideoPlay();
+}
+
+function bindVideoAutoplay() {
+  if (state.videoAutoplayBound) return;
+  state.videoAutoplayBound = true;
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) {
+      clearVideoAutoplayTimers();
+      document.querySelectorAll("video").forEach((videoEl) => videoEl.pause());
+    } else {
+      syncSlideVideos();
+    }
+  });
+  window.addEventListener("pageshow", syncSlideVideos);
+  document.addEventListener("pointerup", playActiveSlideVideos, { passive: true });
+  document.addEventListener("touchend", playActiveSlideVideos, { passive: true });
 }
 
 function setMediaSource(el, blob, name = "") {
@@ -1178,9 +1472,10 @@ function setMediaSource(el, blob, name = "") {
   el.dataset.objectUrl = url;
   el.dataset.localName = name;
   if (el.tagName.toLowerCase() === "video") {
+    prepareVideoForAutoplay(el);
     el.src = url;
     el.load();
-    el.play().catch(() => {});
+    if (el.closest(".slide.active")) queueActiveSlideVideoPlay();
   } else if (el.classList.contains("placeholder-portrait")) {
     el.style.backgroundImage = `linear-gradient(rgba(0,0,0,0.08), rgba(0,0,0,0.08)), url("${url}")`;
     el.style.backgroundSize = "cover";
@@ -1199,9 +1494,10 @@ function setStaticMediaSource(el, entry) {
   const url = entry.src;
   el.dataset.localName = entry.name || "";
   if (el.tagName.toLowerCase() === "video") {
+    prepareVideoForAutoplay(el);
     el.src = url;
     el.load();
-    el.play().catch(() => {});
+    if (el.closest(".slide.active")) queueActiveSlideVideoPlay();
   } else if (el.classList.contains("placeholder-portrait")) {
     el.style.backgroundImage = `linear-gradient(rgba(0,0,0,0.08), rgba(0,0,0,0.08)), url("${url}")`;
     el.style.backgroundSize = "cover";
